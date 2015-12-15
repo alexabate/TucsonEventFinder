@@ -33,12 +33,29 @@ def scrape(link):
     
     
     ### Get Address stuff
-    street = soup.find_all("meta", {"property":"og:street-address"} )[0]["content"]
-    lat = soup.find_all("meta", {"property":"og:latitude"} )[0]["content"]
-    lon = soup.find_all("meta", {"property":"og:longitude"} )[0]["content"]
-    locale = soup.find_all("meta", {"property":"og:locality"} )[0]["content"]
-    region = soup.find_all("meta", {"property":"og:region"} )[0]["content"]
-    zipc = soup.find_all("meta", {"property":"og:postal-code"} )[0]["content"]
+    address = ["og:street-address", "og:latitude", "og:longitude", "og:locality",
+               "og:region", "og:postal-code"]
+    addr_stuff = []
+    for ad in address:
+        result = soup.find_all("meta", {"property": ad})
+        if (len(result)>0):
+            addr_stuff.append(result[0]["content"])
+        else:
+            addr_stuff.append(None)
+        
+    #street = soup.find_all("meta", {"property":"og:street-address"} )[0]["content"]
+    #lat = soup.find_all("meta", {"property":"og:latitude"} )[0]["content"]
+    #lon = soup.find_all("meta", {"property":"og:longitude"} )[0]["content"]
+    #locale = soup.find_all("meta", {"property":"og:locality"} )[0]["content"]
+    #region = soup.find_all("meta", {"property":"og:region"} )[0]["content"]
+    #zipc = soup.find_all("meta", {"property":"og:postal-code"} )[0]["content"]
+    
+    street = addr_stuff[0]
+    lat = addr_stuff[1]
+    lon = addr_stuff[2]
+    locale = addr_stuff[3]
+    region = addr_stuff[4]
+    zipc = addr_stuff[5]
     
     print "Address =", street, locale, region, zipc
     print "Lat, lon =", lat, lon
@@ -96,12 +113,17 @@ def scrape(link):
             dollarValues[i] = float(dollarValues[i].strip('$'))
         minprice = min(dollarValues)
         maxprice = max(dollarValues)
+    price = None 
     if (maxprice != minprice):
         print "Price range =", minprice, "to", maxprice
+        price = minprice + " to " + maxprice
     else:
+        price = minprice
         print "Price =", minprice
     
     print "When =", when
+    
+    return name, description, street + locale + region + zipc, price, when
 
     """   
     # get time and date
@@ -121,7 +143,10 @@ def scrape(link):
     return [venue, minprice, maxprice, neighborhood, address_full, time]
     """
 
-
+### Create dataframe
+columns = ['Name', 'Description', 'Address', 'Price', 'When']
+df = pd.DataFrame(columns=columns)
+print df.head()
 
 # The code below searches all of today's listings
 numDays = 1
@@ -138,13 +163,13 @@ for j in range(0, numDays):
     baseUrl = 'http://www.tucsonweekly.com/tucson/EventSearch?narrowByDate='
     
     # while loop to crawl over pages
-    npageMax = 1000 # maximum possible number of pages of events: a huge number, and the code should break 
+    npageMax = 2 # maximum possible number of pages of events: a huge number, and the code should break 
                     # before this
 
     
     # base URL for this date
     url = baseUrl + dateString
-    
+    ii=0
     for pageNum in xrange(1, npageMax):
         print "On page =", pageNum
     
@@ -186,11 +211,21 @@ for j in range(0, numDays):
                     #print "Event link =", event_link
                     isFound = True
                     
-            scrape(event_link)
+            return_data= scrape(event_link)
+            if (return_data is not None):
+                name, description, addr, price, when = return_data
+                
+                # scrape when to just get time out
+                
+                # scrape description to look for dates/times and remove?
+                
+                # check if name is present in table yet
+                df.loc[ii] = [name, description, addr, price, when]
+            ii+=1
             print "\n"
         
     print "There were", nEvents ,"events on", dateString
-
+    print df.head(15)
 
 
 
