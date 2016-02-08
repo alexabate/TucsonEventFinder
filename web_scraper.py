@@ -116,7 +116,7 @@ def scrape(link):
     price = None 
     if (maxprice != minprice):
         print "Price range =", minprice, "to", maxprice
-        price = minprice + " to " + maxprice
+        price = str(minprice) + " to " + str(maxprice)
     else:
         price = minprice
         print "Price =", minprice
@@ -230,6 +230,6 @@ for j in range(0, numDays):
 
 
 # parse webpage with BeautifulSoup
-link = "http://www.tucsonweekly.com/tucson/light-bending-mind-blowing/Event?oid=4898248"
+#link = "http://www.tucsonweekly.com/tucson/light-bending-mind-blowing/Event?oid=4898248"
 #link = "http://www.tucsonweekly.com/tucson/arizona-sonora-desert-museum/Event?oid=1107662"
 #scrape(link)
