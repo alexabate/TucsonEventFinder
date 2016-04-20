@@ -3,6 +3,8 @@ import requests
 from bs4 import BeautifulSoup
 import pandas as pd
 import re
+import psycopg2
+import numpy as np
 
 # see this:
 # http://nycdatascience.com/nyc-concert-data-web-scraping-with-python/
@@ -82,8 +84,8 @@ def scrape(link):
 
             
     ### Perhaps do other parsing: event was listed today for a reason, perhaps an "every 4th Friday" thing
-    if (not foundWhen):
-        print "returning none"
+    if (not foundWhen or when == "Ongoing"):
+        print "\n***********No event time:", description, "\n"
         return None
         
     #print "price string =", textPrice
@@ -116,12 +118,12 @@ def scrape(link):
     price = None 
     if (maxprice != minprice):
         print "Price range =", minprice, "to", maxprice
-        price = str(minprice) + " to " + str(maxprice)
+        price = np.mean([minprice, maxprice]) #str(minprice) + " to " + str(maxprice)
     else:
         price = minprice
         print "Price =", minprice
     
-    print "When =", when
+    print "When =", when, "\n"
     
     return name, description, street + locale + region + zipc, price, when
 
@@ -138,15 +140,24 @@ def scrape(link):
         time = timeString[0]
     print time
   
-
     # return list with relevant info
     return [venue, minprice, maxprice, neighborhood, address_full, time]
     """
 
 ### Create dataframe
-columns = ['Name', 'Description', 'Address', 'Price', 'When']
+columns = ['Name', 'Description', 'Price']
+#['Name', 'Description', 'Address', 'Price', 'When']
 df = pd.DataFrame(columns=columns)
 print df.head()
+
+### Connect to the tucson database (already created)
+conn = psycopg2.connect(database="tucson", user="alex", host="/var/run/postgresql/", port="5432")
+cursor = conn.cursor()
+#temporary: delete everything
+cursor.execute("DELETE FROM events;");
+# reset auto increment to start at 1
+cursor.execute("SELECT setval(pevent_id, 1) FROM events")
+
 
 # The code below searches all of today's listings
 numDays = 1
@@ -158,12 +169,12 @@ for j in range(0, numDays):
     date = datetime.date.today() + datetime.timedelta(days = j) 
     dateString = date.strftime("%Y-%m-%d")
     print "DATE:"
-    print dateString
+    print dateString, "\n"
     
     baseUrl = 'http://www.tucsonweekly.com/tucson/EventSearch?narrowByDate='
     
     # while loop to crawl over pages
-    npageMax = 2 # maximum possible number of pages of events: a huge number, and the code should break 
+    npageMax = 2000 # maximum possible number of pages of events: a huge number, and the code should break 
                     # before this
 
     
@@ -171,7 +182,7 @@ for j in range(0, numDays):
     url = baseUrl + dateString
     ii=0
     for pageNum in xrange(1, npageMax):
-        print "On page =", pageNum
+        print "On page =", pageNum, "\n"
     
         # parse webpage with BeautifulSoup
         if (pageNum>1):
@@ -211,7 +222,7 @@ for j in range(0, numDays):
                     #print "Event link =", event_link
                     isFound = True
                     
-            return_data= scrape(event_link)
+            return_data = scrape(event_link)
             if (return_data is not None):
                 name, description, addr, price, when = return_data
                 
@@ -220,15 +231,38 @@ for j in range(0, numDays):
                 # scrape description to look for dates/times and remove?
                 
                 # check if name is present in table yet
-                df.loc[ii] = [name, description, addr, price, when]
-            ii+=1
+                df.loc[ii] = [name, description, price] #[name, description, addr, price, when]
+                
+                # playing with database
+                
+                ### DON'T LOOK IN FOURSQUARE DATABASE IF KIND=SPECIAL EVENT
+                
+                
+                name = name.replace("'", "")
+                description = description.replace("'", "")
+                print name
+                name = name.encode('ascii','ignore')
+                description = description.encode('ascii','ignore')
+                
+                if (not price == None):
+                    cmd = "INSERT INTO events(event_name, description, price) VALUES"
+                    cmd +=" ('{0:s}', '{1:s}', {2:3.2f})".format(name, description, price)
+                else:
+                    cmd = "INSERT INTO events(event_name, description) VALUES"
+                    cmd +=" ('{0:s}', '{1:s}')".format(name, description)
+                print cmd
+                cursor.execute(cmd)
+                
+                ii+=1
             print "\n"
         
     print "There were", nEvents ,"events on", dateString
     print df.head(15)
 
 
-
+conn.commit()
+conn.close()
+print "Closed database successfully"
 # parse webpage with BeautifulSoup
 #link = "http://www.tucsonweekly.com/tucson/light-bending-mind-blowing/Event?oid=4898248"
 #link = "http://www.tucsonweekly.com/tucson/arizona-sonora-desert-museum/Event?oid=1107662"

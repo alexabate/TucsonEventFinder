@@ -1,0 +1,68 @@
+Setting up postgres
+
+- installation of postgres creates a linux account called postgres
+- switch to this account via sudo -i -u postgres
+- now can run psql
+- 'createdb tucson' created a database called tucson
+- in psql can get 
+  - list of users with \du
+  - list of databases with \list
+- create user called alex (to match the linux account I think)
+  - CREATE USER alex WITH SUPERUSER CREATEDB INHERIT LOGIN REPLICATION;
+- logout of postgres account (now in user alex)
+
+- Just typing 'psql' gets this error
+  psql: could not connect to server: No such file or directory
+        Is the server running locally and accepting
+        connections on Unix domain socket "/tmp/.s.PGSQL.5432"?
+
+
+I think problem is for some reason it is looking in /tmp for stuff and 
+this is wrong
+
+- following the advice here:
+  https://help.ubuntu.com/community/PostgreSQL
+  
+  (1) find which socket directory and port client was looking at:
+      sudo -u postgres psql -c "SHOW unix_socket_directory;"
+  
+      returned:
+   
+   unix_socket_directory 
+   -----------------------
+   /var/run/postgresql
+   (1 row)
+
+
+  (2) check which port 
+      sudo -u postgres psql -c "SHOW port;"
+
+      returned:
+
+   port 
+   ------
+   5432
+  (1 row)
+  
+- instead call psql with args: 
+  psql "dbname='tucson' host=/var/run/postgresql/ port=5432"  OR
+  psql "dbname='tucson' host=/var/run/postgresql/ port=5432 user='alex'"
+
+  Get message of 
+  psql: FATAL:  Peer authentication failed for user XXXXX
+
+  for any other user
+
+  also seems to work no matter what is given for password='  ' as long 
+  as user is 'alex'
+
+  note this is from linux user account 'alex'
+
+- \c in postgres interactive terminal (launched by psql) tells you which
+  database you are connected to as which user
+
+
+Database data storage
+- to find out where the actual database is stored do:
+  show data_directory;
+
